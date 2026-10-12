@@ -1,0 +1,116 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: linear-gradient(135deg, #0f172a, #4c1d95);
+    min-height: 100vh;
+    padding: 30px 20px;
+    color: #1f2937;
+}
+
+.app {
+    max-width: 780px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+header { text-align: center; color: #fff; }
+header h1 { font-size: 28px; margin-bottom: 4px; }
+.subtitle { color: #cbd5e1; font-size: 14px; }
+
+.card {
+    background: #fff;
+    padding: 22px;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+}
+.card h2 { font-size: 17px; color: #4c1d95; margin-bottom: 14px; }
+
+.tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    border-bottom: 2px solid #e5e7eb;
+}
+.tab {
+    background: none;
+    border: none;
+    padding: 8px 16px;
+    font-weight: 600;
+    color: #6b7280;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+}
+.tab.active { color: #4c1d95; border-bottom-color: #4c1d95; }
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+input, textarea, select {
+    padding: 11px 13px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #f9fafb;
+}
+input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: #4c1d95;
+    background: #fff;
+}
+
+textarea { resize: vertical; min-height: 60px; }
+
+button {
+    padding: 11px 18px;
+    background: #4c1d95;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    transition: background 0.15s;
+}
+button:hover:not(:disabled) { background: #5b21b6; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+button.secondary {
+    background: #e5e7eb;
+    color: #374151;
+}
+button.secondary:hover { background: #d1d5db; }
+
+.status { margin-top: 10px; font-size: 13px; font-weight: 500; }
+.muted { color: #6b7280; font-size: 13px; }
+
+.filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.filters input { flex: 1; }
+
+.events-list { display: flex; flex-direction: column; gap: 12px; }
+
+.event {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 14px;
+    background: #fafafa;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.event h3 { font-size: 16px; color: #111827; margin-bottom: 2px; }
+.event p { font-size: 13px; color: #374151; }
+.event button { align-self: flex-start; margin-top: 6px; }
+
+.hidden { display: none !important; }

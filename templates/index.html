@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>CodeAlpha Event Registration</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+    <main class="app">
+        <header>
+            <h1>🎟️ Event Registration System</h1>
+            <p class="subtitle">CodeAlpha Backend Internship — Task 2</p>
+        </header>
+
+        <!-- AUTH SECTION -->
+        <section class="card" id="auth-section">
+            <h2>1. Register / Login</h2>
+
+            <div class="tabs">
+                <button type="button" class="tab active" data-tab="register">Register</button>
+                <button type="button" class="tab" data-tab="login">Login</button>
+            </div>
+
+            <form id="register-form" class="form">
+                <input type="text" id="reg-name" placeholder="Full name" required />
+                <input type="email" id="reg-email" placeholder="Email" required />
+                <input type="password" id="reg-password" placeholder="Password (min 6 chars)" required />
+                <select id="reg-role">
+                    <option value="attendee">Attendee</option>
+                    <option value="organizer">Organizer</option>
+                </select>
+                <button type="submit">Create account</button>
+            </form>
+
+            <form id="login-form" class="form hidden">
+                <input type="email" id="login-email" placeholder="Email" required />
+                <input type="password" id="login-password" placeholder="Password" required />
+                <button type="submit">Login</button>
+            </form>
+
+            <p id="auth-status" class="status"></p>
+        </section>
+
+        <!-- CURRENT USER -->
+        <section class="card hidden" id="user-section">
+            <h2>Logged in as</h2>
+            <p id="user-info"></p>
+            <button id="logout-btn" class="secondary">Logout</button>
+        </section>
+
+        <!-- CREATE EVENT (organizer only) -->
+        <section class="card hidden" id="create-event-section">
+            <h2>2. Create Event (Organizer)</h2>
+            <form id="create-event-form" class="form">
+                <input type="text" id="ev-title" placeholder="Event title" required />
+                <textarea id="ev-description" placeholder="Description"></textarea>
+                <input type="text" id="ev-date" placeholder="Date & time (2025-12-31T18:00)" required />
+                <input type="text" id="ev-location" placeholder="Location" />
+                <input type="number" id="ev-capacity" placeholder="Capacity" value="50" min="1" />
+                <button type="submit">Create event</button>
+            </form>
+            <p id="create-status" class="status"></p>
+        </section>
+
+        <!-- EVENTS LIST -->
+        <section class="card" id="events-section">
+            <h2>3. Events</h2>
+            <div class="filters">
+                <input type="text" id="search-input" placeholder="Search by title..." />
+                <button id="refresh-btn" class="secondary">Refresh</button>
+            </div>
+            <div id="events-list" class="events-list">
+                <p class="muted">Loading events...</p>
+            </div>
+        </section>
+
+        <!-- MY REGISTRATIONS -->
+        <section class="card hidden" id="my-registrations-section">
+            <h2>4. My Registrations</h2>
+            <div id="my-registrations-list" class="events-list">
+                <p class="muted">You haven't registered for anything yet.</p>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        let token = null;
+        let currentUser = null;
+
+        const $ = (id) => document.getElementById(id);
+        const authHeaders = () => token
+            ? { "Content-Type": "application/json", "Authorization": "Bearer " + token }
+            : { "Content-Type": "application/json" };
+
+        async function api(path, options) {
+            options = options || {};
+            const res = await fetch(path, options);
+            let data = null;
+            try { data = await res.json(); } catch (e) { data = {}; }
+            if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+            return data;
+        }
+
+        // Tabs
+        document.querySelectorAll(".tab").forEach(function (tab) {
+            tab.addEventListener("click", function () {
+                document.querySelectorAll(".tab").forEach(function (t) { t.classList.remove("active"); });
+                tab.classList.add("active");
+                const which = tab.dataset.tab;
+                $("register-form").classList.toggle("hidden", which !== "register");
+                $("login-form").classList.toggle("hidden", which !== "login");
+            });
+        });
+
+        // Register
+        $("register-form").addEventListener("submit", async function (e) {
+            e.preventDefault();
+            $("auth-status").textContent = "";
+            try {
+                const data = await api("/auth/register", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        name: $("reg-name").value,
+                        email: $("reg-email").value,
+                        password: $("reg-password").value,
+                        role: $("reg-role").value,
+                    }),
+                });
+                setSession(data.access_token, data.user);
+                $("auth-status").textContent = "✅ Registered successfully!";
+            } catch (err) {
+                $("auth-status").textContent = "❌ " + err.message;
+            }
+        });
+
+        // Login
+        $("login-form").addEventListener("submit", async function (e) {
+            e.preventDefault();
+            $("auth-status").textContent = "";
+            try {
+                const data = await api("/auth/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        email: $("login-email").value,
+                        password: $("login-password").value,
+                    }),
+                });
+                setSession(data.access_token, data.user);
+                $("auth-status").textContent = "✅ Logged in!";
+            } catch (err) {
+                $("auth-status").textContent = "❌ " + err.message;
+            }
+        });
+
+        function setSession(newToken, user) {
+            token = newToken;
+            currentUser = user;
+            localStorage.setItem("token", token);
+            localStorage.setItem("user", JSON.stringify(user));
+            applySession();
+        }
+
+        function clearSession() {
+            token = null;
+            currentUser = null;
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            applySession();
+        }
+
+        function applySession() {
+            const loggedIn = !!token;
+            $("user-section").classList.toggle("hidden", !loggedIn);
+            $("my-registrations-section").classList.toggle("hidden", !loggedIn);
+            $("create-event-section").classList.toggle(
+                "hidden",
+                !loggedIn || !currentUser || currentUser.role !== "organizer"
+            );
+
+            if (loggedIn) {
+                $("user-info").textContent = currentUser.name + " (" + currentUser.email + ") — role: " + currentUser.role;
+                loadMyRegistrations();
+            }
+        }
+
+        $("logout-btn").addEventListener("click", clearSession);
+
+        // Create event
+        $("create-event-form").addEventListener("submit", async function (e) {
+            e.preventDefault();
+            $("create-status").textContent = "";
+            try {
+                await api("/events", {
+                    method: "POST",
+                    headers: authHeaders(),
+                    body: JSON.stringify({
+                        title: $("ev-title").value,
+                        description: $("ev-description").value,
+                        date: $("ev-date").value,
+                        location: $("ev-location").value,
+                        capacity: parseInt($("ev-capacity").value, 10),
+                    }),
+                });
+                $("create-status").textContent = "✅ Event created!";
+                $("create-event-form").reset();
+                loadEvents();
+            } catch (err) {
+                $("create-status").textContent = "❌ " + err.message;
+            }
+        });
+
+        // Load events
+        async function loadEvents() {
+            const search = $("search-input").value.trim();
+            const url = search ? "/events?search=" + encodeURIComponent(search) : "/events";
+            const list = $("events-list");
+            list.innerHTML = '<p class="muted">Loading...</p>';
+
+            try {
+                const events = await api(url);
+                if (!events.length) {
+                    list.innerHTML = '<p class="muted">No events yet.</p>';
+                    return;
+                }
+                list.innerHTML = events.map(renderEvent).join("");
+                bindEventButtons();
+            } catch (err) {
+                list.innerHTML = '<p class="status">❌ ' + err.message + '</p>';
+            }
+        }
+
+        function renderEvent(ev) {
+            const date = new Date(ev.date).toLocaleString();
+            const full = ev.spots_left <= 0;
+            return (
+                '<article class="event">' +
+                    '<h3>' + escapeHtml(ev.title) + '</h3>' +
+                    '<p class="muted">' + escapeHtml(ev.description || "") + '</p>' +
+                    '<p><strong>When:</strong> ' + date + '</p>' +
+                    '<p><strong>Where:</strong> ' + escapeHtml(ev.location || "TBA") + '</p>' +
+                    '<p><strong>Spots:</strong> ' + ev.spots_taken + ' / ' + ev.capacity + ' (' + ev.spots_left + ' left)</p>' +
+                    '<button class="register-btn" data-id="' + ev.id + '" ' + (full ? "disabled" : "") + '>' +
+                        (full ? "Event Full" : "Register") +
+                    '</button>' +
+                '</article>'
+            );
+        }
+
+        function bindEventButtons() {
+            document.querySelectorAll(".register-btn").forEach(function (btn) {
+                btn.addEventListener("click", async function () {
+                    if (!token) { alert("Please log in first."); return; }
+                    const id = btn.dataset.id;
+                    try {
+                        await api("/events/" + id + "/register", {
+                            method: "POST",
+                            headers: authHeaders(),
+                        });
+                        alert("✅ Registered!");
+                        loadEvents();
+                        loadMyRegistrations();
+                    } catch (err) {
+                        alert("❌ " + err.message);
+                    }
+                });
+            });
+        }
+
+        // My registrations
+        async function loadMyRegistrations() {
+            if (!token) return;
+            const list = $("my-registrations-list");
+            list.innerHTML = '<p class="muted">Loading...</p>';
+
+            try {
+                const regs = await api("/registrations/me", { headers: authHeaders() });
+                if (!regs.length) {
+                    list.innerHTML = '<p class="muted">You haven\'t registered for anything yet.</p>';
+                    return;
+                }
+                list.innerHTML = regs.map(function (r) {
+                    return (
+                        '<article class="event">' +
+                            '<h3>' + escapeHtml(r.event.title) + '</h3>' +
+                            '<p><strong>When:</strong> ' + new Date(r.event.date).toLocaleString() + '</p>' +
+                            '<p><strong>Where:</strong> ' + escapeHtml(r.event.location || "TBA") + '</p>' +
+                            '<button class="cancel-btn secondary" data-id="' + r.id + '">Cancel</button>' +
+                        '</article>'
+                    );
+                }).join("");
+
+                document.querySelectorAll(".cancel-btn").forEach(function (btn) {
+                    btn.addEventListener("click", async function () {
+                        if (!confirm("Cancel this registration?")) return;
+                        try {
+                            await api("/registrations/" + btn.dataset.id, {
+                                method: "DELETE",
+                                headers: authHeaders(),
+                            });
+                            loadMyRegistrations();
+                            loadEvents();
+                        } catch (err) {
+                            alert("❌ " + err.message);
+                        }
+                    });
+                });
+            } catch (err) {
+                list.innerHTML = '<p class="status">❌ ' + err.message + '</p>';
+            }
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        }
+
+        $("refresh-btn").addEventListener("click", loadEvents);
+
+        let debounceTimer;
+        $("search-input").addEventListener("input", function () {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(loadEvents, 300);
+        });
+
+        // Restore session
+        (function init() {
+            const savedToken = localStorage.getItem("token");
+            const savedUser = localStorage.getItem("user");
+            if (savedToken && savedUser) {
+                token = savedToken;
+                currentUser = JSON.parse(savedUser);
+                applySession();
+            }
+            loadEvents();
+        })();
+    </script>
+</body>
+</html>
